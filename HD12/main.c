@@ -20,6 +20,7 @@
 #include <bmc_interface.h>
 #include <dvfs.h>
 #include <ddr.h>
+#include <warming.h>
 
 void HardFault_Handler(void)
 {
@@ -75,6 +76,9 @@ int main()
 
 	ddr_size_init(DDR_SIZE_2R_128G);
 	// set_chip_enable();
+
+	/* init warming strategy */
+	warming_init();
 
 	while(1) {
 		if (chip_enable()) {

@@ -99,5 +99,6 @@ struct sg2044_pll_clock {
 int top_misc_read(int idx, uint64_t offset, uint32_t *value);
 int top_misc_write(int idx, uint64_t offset, uint32_t value);
 int sg2044_clk_pll_set_rate(int idx, int mpll_id, uint64_t rate, uint64_t parent_rate);
+int sg2044_clk_read_mpll_rate(int chip, int mpll_i, uint64_t *rate);
 
 #endif

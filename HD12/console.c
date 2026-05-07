@@ -56,27 +56,27 @@ static void cmd_volt(void *hint, int argc, char const *argv[])
 	}
 }
 
-static const char * const cmd_volt_set_usage =
-"volt_set [chip_num] [val]\n"
-" set voltage for chip\n"
-" chip num range 0~1\n";
+// static const char * const cmd_volt_set_usage =
+// "volt_set [chip_num] [val]\n"
+// " set voltage for chip\n"
+// " chip num range 0~1\n";
 
-static void cmd_volt_set(void *hint, int argc, char const *argv[])
-{
-	int page;
-	int val;
+// static void cmd_volt_set(void *hint, int argc, char const *argv[])
+// {
+// 	int page;
+// 	int val;
 
-	if(argc != 3){
-		dbg_printf("invalid usage\n");
-		return;
-	}
+// 	if(argc != 3){
+// 		dbg_printf("invalid usage\n");
+// 		return;
+// 	}
 
-	/* multiphase set voltage*/
-	page = atoi(argv[1]);
-	val = atoi(argv[2]);
-	dbg_printf("page = %d, val = %d\n", page, val);
-	multiphase_set_out_voltage(0, page, val);
-}
+// 	/* multiphase set voltage*/
+// 	page = atoi(argv[1]);
+// 	val = atoi(argv[2]);
+// 	dbg_printf("page = %d, val = %d\n", page, val);
+// 	multiphase_set_out_voltage(0, page, val);
+// }
 
 static const char * const cmd_rdroop_usage =
 "rdroop\n"
@@ -99,26 +99,26 @@ static void cmd_rdroop(void *hint, int argc, char const *argv[])
 	}
 }
 
-static const char * const cmd_rdroop_set_usage =
-"rdroop_set [chip_num] [val]\n"
-" set rdroop for chip\n"
-" chip num range 0~1\n";
+// static const char * const cmd_rdroop_set_usage =
+// "rdroop_set [chip_num] [val]\n"
+// " set rdroop for chip\n"
+// " chip num range 0~1\n";
 
-static void cmd_rdroop_set(void *hint, int argc, char const *argv[])
-{
-	int page;
-	int val;
+// static void cmd_rdroop_set(void *hint, int argc, char const *argv[])
+// {
+// 	int page;
+// 	int val;
 
-	if (argc != 3) {
-		dbg_printf("invalid usage\n");
-		return;
-	}
+// 	if (argc != 3) {
+// 		dbg_printf("invalid usage\n");
+// 		return;
+// 	}
 
-	/* multiphase set rdroop*/
-	page = atoi(argv[1]);
-	val = atoi(argv[2]);
-	multiphase_set_out_droop(0, page, val);
-}
+// 	/* multiphase set rdroop*/
+// 	page = atoi(argv[1]);
+// 	val = atoi(argv[2]);
+// 	multiphase_set_out_droop(0, page, val);
+// }
 
 static const char * const cmd_sn_usage =
 "sn [sn]\n"
@@ -253,77 +253,125 @@ static void cmd_temp(void *hint, int argc, char const *argv[])
 	}
 }
 
-static const char * const cmd_location_usage =
-"location\n"
-"    get location of board\n";
-static void cmd_location(void *hint, int argc, char const *argv[])
-{
-	if (argc == 1){
-		dbg_printf("Board location: %d\n", get_module_id());
-	}else {
-		dbg_printf(cmd_location_usage);
-	}
-}
+// static const char * const cmd_location_usage =
+// "location\n"
+// "    get location of board\n";
+// static void cmd_location(void *hint, int argc, char const *argv[])
+// {
+// 	if (argc == 1){
+// 		dbg_printf("Board location: %d\n", get_module_id());
+// 	}else {
+// 		dbg_printf(cmd_location_usage);
+// 	}
+// }
 
 
-static const char * const cmd_multiphase_usage =
-"multiphase [page] [reg]\n"
-"    get multiphase reg value\n";
-static void cmd_multiphase(void *hint, int argc, char const *argv[])
-{
-	int page;
-	int reg;
-	unsigned long val;
+// static const char * const cmd_multiphase_usage =
+// "multiphase [page] [reg]\n"
+// "    get multiphase reg value\n";
+// static void cmd_multiphase(void *hint, int argc, char const *argv[])
+// {
+// 	int page;
+// 	int reg;
+// 	unsigned long val;
 
-	if(argc != 3){
-		dbg_printf("invalid usage\n");
-		return;
-	}
-	page = atoi(argv[1]);
-	reg = strtol(argv[2], NULL, 0);
-	val = multiphase_read_reg(0, page, reg);
-	dbg_printf("multiphase reg value: %0lx\n", val);
-}
+// 	if(argc != 3){
+// 		dbg_printf("invalid usage\n");
+// 		return;
+// 	}
+// 	page = atoi(argv[1]);
+// 	reg = strtol(argv[2], NULL, 0);
+// 	val = multiphase_read_reg(0, page, reg);
+// 	dbg_printf("multiphase reg value: %0lx\n", val);
+// }
 
+#if 0
 static const char * const cmd_dbgi2c_usage =
-"dbgi2c [idx] [pll_mode] [freq]\n"
-"    debug i2c write freq to chip\n";
+"dbgi2c [r/w] [idx] [pll_mode] [freq]\n"
+"    debug i2c write/read freq to chip\n";
 static void cmd_dbgi2c(void *hint, int argc, char const *argv[])
 {
 #define TPU_MPLL		2
 #define K2K_MPLL		3
 #define PARENT_FREQ		25 * MHZ
 	int idx;
-	int freq;
-	int ret;
+	uint64_t freq;
+	int ret = 0;
 	int pll_mode;
 
-	if(argc != 4){
+	if(argc != 4 && argc != 5){
 		dbg_printf("invalid usage\n");
 		return;
 	}
 
-	idx = atoi(argv[1]);
-	pll_mode = atoi(argv[2]);
-	freq = atoi(argv[3]);
-
-	if (pll_mode != TPU_MPLL && pll_mode != K2K_MPLL) {
-		dbg_printf("invalid pll_mode, should be 2 for tpu mpll or 3 for k2k mpll\n");
-		return;
-	}
-
-	if (freq < 500 || freq > 2000) {
-		dbg_printf("invalid freq, should be between 500 and 2000\n");
-		return;
-	} else {
-		ret = sg2044_clk_pll_set_rate(idx, pll_mode, freq * MHZ, PARENT_FREQ);
+	if (strcmp(argv[1], "r") == 0){
+		idx = atoi(argv[2]);
+		pll_mode = atoi(argv[3]);
+		ret = sg2044_clk_read_mpll_rate(idx, pll_mode, &freq);
 		if (ret != 0) {
-			dbg_printf("device chip tpu freq cfg fail, %d\n", ret);
+			dbg_printf("chip-%d, mode = %d, read freq failed", idx, pll_mode);
+		}
+		dbg_printf("real_freq = %dMHz\n", freq);
+		dbg_printf("chip-%d, pll_mode = %d, freq = %dMHz\n", idx, pll_mode, freq / MHZ);
+	} else {
+		idx = atoi(argv[2]);
+		pll_mode = atoi(argv[3]);
+		freq = atoi(argv[4]);
+
+		if (pll_mode != TPU_MPLL && pll_mode != K2K_MPLL) {
+			dbg_printf("invalid pll_mode, should be 2 for tpu mpll or 3 for k2k mpll\n");
 			return;
 		}
+
+		if (freq < 500 || freq > 2000) {
+			dbg_printf("invalid freq, should be between 500 and 2000\n");
+			return;
+		} else {
+			ret = sg2044_clk_pll_set_rate(idx, pll_mode, freq * MHZ, PARENT_FREQ);
+			if (ret != 0) {
+				dbg_printf("device chip tpu freq cfg fail, %d\n", ret);
+				return;
+			}
+		}
+		dbg_printf("idx: %d, pll_mode: %d, freq: %d\n", idx, pll_mode, freq);
+	}
+}
+#endif
+
+static const char * const cmd_dbgi2c_usage =
+"dbgi2c [r/w] [idx] [addr] [value]\n"
+"    debug i2c write/read freq to chip\n";
+static void cmd_dbgi2c(void *hint, int argc, char const *argv[])
+{
+	int idx;
+	uint32_t value;
+	int ret = 0;
+	uint64_t addr;
+
+	if(argc != 4 && argc != 5){
+		dbg_printf("invalid usage\n");
+		return;
 	}
 
-	dbg_printf("idx: %d, pll_mode: %d, freq: %d\n", idx, pll_mode, freq);
+	if (strcmp(argv[1], "r") == 0){
+		idx = atoi(argv[2]);
+		addr = strtoull(argv[3], NULL, 16);
+		ret = dbgi2c_read32(idx, addr, &value);
+		if (ret != 0) {
+			dbg_printf("chip-%d, addr = %lx%08lx, read failed", idx, (uint32_t)(addr >> 32), (uint32_t)(addr & 0xFFFFFFFF));
+		}
+		dbg_printf("chip-%d, addr = %lx%08lx, value = %x\n", idx, (uint32_t)(addr >> 32), (uint32_t)(addr & 0xFFFFFFFF), value);
+	} else {
+		idx = atoi(argv[2]);
+		addr = strtoull(argv[3], NULL, 16);
+		value = (uint32_t)strtoul(argv[4], NULL, 16);
+
+		ret = dbgi2c_write32(idx, addr, value);
+		if (ret != 0) {
+			dbg_printf("chip-%d, addr = %lx%08lx, value = %lx, write failed", idx, (uint32_t)(addr >> 32), (uint32_t)(addr & 0xFFFFFFFF), value);
+		}
+		dbg_printf("idx: %d, addr = %lx%08lx, value = %lx, write OK\n", idx, (uint32_t)(addr >> 32), (uint32_t)(addr & 0xFFFFFFFF), value);
+	}
 }
 
 static const char * const cmd_efuse_usage =
@@ -367,15 +415,15 @@ static struct command command_list[] = {
 	{"info", NULL, cmd_info_usage, cmd_info},
 	{"temp", NULL, cmd_temp_usage, cmd_temp},
 	{"volt", NULL, cmd_volt_usage, cmd_volt},
-	{"volt_set", NULL, cmd_volt_set_usage, cmd_volt_set},
+	// {"volt_set", NULL, cmd_volt_set_usage, cmd_volt_set},
 	{"rdroop", NULL, cmd_rdroop_usage, cmd_rdroop},
-	{"rdroop_set", NULL, cmd_rdroop_set_usage, cmd_rdroop_set},
+	// {"rdroop_set", NULL, cmd_rdroop_set_usage, cmd_rdroop_set},
 	{"sn", NULL, cmd_sn_usage, cmd_sn},
 	{"power", NULL, cmd_power_usage, cmd_power},
 	// {"low", NULL, NULL, cmd_low},
 	// {"high", NULL, NULL, cmd_high},
-	{"location", NULL, cmd_location_usage, cmd_location},
-	{"multiphase", NULL, cmd_multiphase_usage, cmd_multiphase},
+	// {"location", NULL, cmd_location_usage, cmd_location},
+	// {"multiphase", NULL, cmd_multiphase_usage, cmd_multiphase},
 	{"dbgi2c", NULL, cmd_dbgi2c_usage, cmd_dbgi2c},
 	{"efuse", NULL, cmd_efuse_usage, cmd_efuse},
 };
@@ -424,7 +472,7 @@ int console_init(void)
 {
 	int i;
 
-	console = ecdc_alloc_console(NULL, console_getc, console_putc, 128, 4);
+	console = ecdc_alloc_console(NULL, console_getc, console_putc, 128, 5);
 	if (console == NULL) {
 		dbg_printf("create console failed\n");
 		return -1;
