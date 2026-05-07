@@ -7,6 +7,7 @@
 #include <debug.h>
 
 #define	POSTDIV_RESULT_INDEX	2
+#define PARENT_FREQ		25 * MHZ
 
 static int sg2044_pll_mux[][2] = {
 	{MPLL0_CLK, 0}, {MPLL1_CLK, 1}, {MPLL2_CLK, 2}, {MPLL3_CLK, 3},
@@ -381,5 +382,33 @@ int sg2044_clk_pll_set_rate(int idx, int mpll_id, uint64_t rate, uint64_t parent
 	sg2044_pll_switch_mux(idx, sg2044_pll, 0);
 out:
 	//spin_unlock_irqrestore(sg2044_pll->lock, flags);
+	return ret;
+}
+
+static void decode_top_pll_ctrl(uint32_t value, uint32_t *fbdiv, uint32_t *postdiv1, uint32_t *postdiv2, uint32_t *refdiv)
+{
+	*fbdiv = value & 0xfff;
+	*refdiv = (value >> 12) & 0x3f;
+	*postdiv1 = ((value >> 18) & 0x7) + 1;
+	*postdiv2 = ((value >> 21) & 0x7) + 1;
+}
+
+int sg2044_clk_read_mpll_rate(int chip, int mpll_i, uint64_t *rate)
+{
+	int ret = 0;
+	uint32_t value;
+	uint32_t fbdiv, postdiv1, postdiv2, refdiv;
+	uint64_t foutvco;
+
+	ret = sg2044_pll_read(chip, mpll_i, &value);
+	if (ret) {
+		return ret;
+	}
+
+	decode_top_pll_ctrl(value, &fbdiv, &postdiv1, &postdiv2, &refdiv);
+
+	foutvco = PARENT_FREQ * fbdiv / refdiv;
+	*rate = foutvco / (postdiv1 * postdiv2);
+
 	return ret;
 }

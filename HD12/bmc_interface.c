@@ -10,7 +10,7 @@
 #include <adc.h>
 #include <pcie.h>
 #include <system.h>
-
+#include <warming.h>
 
 /* i2c slave operations */
 
@@ -49,6 +49,48 @@ static uint8_t get_sn_bit(int i)
 
 	return tmp;
 
+}
+
+static volatile int chip_status = 0;
+
+int get_chip_status(void)
+{
+	return chip_status;
+}
+
+void reset_chip_status(void)
+{
+	chip_status = 0;
+}
+
+void check_chip_status(void)
+{
+	int i;
+	int all_above_threshold = 1;
+
+	if (chip_status)
+		return;
+
+	// 检查两颗芯片温度是否都高于45度
+	for (i = 0; i < SOC_NUM; ++i) {
+		if (get_soc_temp(i) < CHIP_TEMP_THRESHOLD_WARMING) {
+			all_above_threshold = 0;
+			break;
+		}
+	}
+
+	if (all_above_threshold) {
+		// 温度达到45度，停止升温策略并初始化PCIE
+		chip_status = 1;
+		dbg_printf("chip_status = 1, chip-0: %d, chip-1: %d\n", get_soc_temp(0), get_soc_temp(1));
+		stop_warming_strategy();
+		pcie_init();
+	} else {
+		// 温度低于45度，启动升温策略
+		if (get_warming_state() == WARMING_STATE_INACTIVE) {
+			start_warming_strategy();
+		}
+	}
 }
 
 static inline void idx_set(uint8_t idx)

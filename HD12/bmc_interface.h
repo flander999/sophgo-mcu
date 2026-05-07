@@ -5,5 +5,6 @@
 
 
 void bmc_init(struct i2c_slave_ctx *i2c);
+void check_chip_status(void);
 
 #endif

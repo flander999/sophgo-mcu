@@ -21,6 +21,7 @@
 #include <dvfs.h>
 #include <ddr.h>
 #include <dbgi2c.h>
+#include <warming.h>
 
 void HardFault_Handler(void)
 {
@@ -75,6 +76,9 @@ int main()
 	//multiphase_init();
 
 	ddr_size_init(DDR_SIZE_2R_128G);
+
+	/* init warming strategy */
+	warming_init();
 
 	while(1) {
 		if (chip_enable()) {

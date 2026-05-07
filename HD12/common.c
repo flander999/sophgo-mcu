@@ -67,9 +67,9 @@ void set_module_id(void)
 {
 	int i;
 	location = 0;
-	uint32_t pins[4] = {MODULE_ID_0_PIN, MODULE_ID_1_PIN, MODULE_ID_2_PIN, MODULE_ID_3_PIN};
+	uint32_t pins[3] = {MODULE_ID_0_PIN, MODULE_ID_1_PIN, MODULE_ID_2_PIN};
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 3; i++) {
 		// 检测module id的pin脚状态， 高电平表示为模组在当前id位置，低电平表示模组不在当前id位置
 		if (gpio_input_bit_get(GPIOC, pins[i]) == 1) {
 			location |= 1 << i; // 模组位置从1开始编号
