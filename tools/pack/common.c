@@ -163,6 +163,7 @@ struct {
 	{"SC11EFP300", {SC11EFP300}},
 	{"HD12", {HD12}},
 	{"CV84X6EVB", {CV84X6EVB}},
+	{"RHS12", {RHS12}},
 };
 
 const char *mcu_family[] = {"STM32L0", "GD32E50", "GD32F4"};

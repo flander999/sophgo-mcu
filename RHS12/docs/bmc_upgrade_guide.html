@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BMC MCU固件升级接口文档</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Noto Sans CJK SC","Microsoft YaHei",sans-serif;font-size:14px;line-height:1.8;color:#2c3e50;display:flex;background:#f8f9fa}
+nav{width:260px;min-width:260px;height:100vh;position:fixed;top:0;left:0;background:#1a1a2e;color:#ccc;overflow-y:auto;padding:24px 0;z-index:100;font-size:13px}
+nav h2{color:#e94560;font-size:16px;padding:0 20px 16px;border-bottom:1px solid #333;margin-bottom:12px}
+nav ul{list-style:none}
+nav a{display:block;color:#aaa;text-decoration:none;padding:5px 20px 5px 24px;border-left:3px solid transparent;transition:all .2s}
+nav a:hover,nav a.active{color:#e94560;background:rgba(233,69,96,.1);border-left-color:#e94560}
+nav a.sub{padding-left:40px;font-size:12px}
+main{margin-left:260px;padding:40px 48px;max-width:960px;width:100%;background:#fff;min-height:100vh;box-shadow:-2px 0 10px rgba(0,0,0,.05)}
+h1{font-size:26px;color:#1a1a2e;padding-bottom:12px;margin-bottom:32px;border-bottom:3px solid #e94560}
+h2{font-size:20px;color:#1a1a2e;margin:36px 0 16px;padding:8px 0 8px 14px;border-left:4px solid #e94560;background:#fdf2f5}
+h3{font-size:16px;color:#333;margin:24px 0 12px}
+h4{font-size:14px;color:#555;margin:16px 0 8px}
+p{margin:8px 0}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13px;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+table th{background:#1a1a2e;color:#fff;font-weight:600;padding:10px 14px;text-align:left}
+table td{padding:8px 14px;border-bottom:1px solid #eee}
+table tr:last-child td{border-bottom:none}
+table tr:nth-child(even){background:#f8f9fa}
+table tr:hover{background:#fff0f3}
+code{font-family:"Cascadia Code","Source Code Pro",monospace;font-size:12px;background:#f0f2f5;padding:2px 6px;border-radius:3px;color:#c7254e}
+pre{background:#1e1e2e;color:#cdd6f4;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:12px;line-height:1.6;margin:12px 0;border:1px solid #313244}
+pre code{background:none;color:inherit;padding:0;font-size:inherit;border-radius:0}
+blockquote{border-left:4px solid #e94560;margin:16px 0;padding:10px 18px;background:#fdf2f5;color:#555;border-radius:0 6px 6px 0}
+blockquote p{margin:4px 0}
+hr{border:none;border-top:1px solid #e0e0e0;margin:32px 0}
+strong{color:#1a1a2e}
+.sourceCode{margin:0}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0}
+@media(max-width:768px){nav{display:none}main{margin-left:0;padding:20px 16px}}
+</style>
+</head>
+<body>
+
+<nav>
+<h2>📋 目录</h2>
+<ul id="toc"></ul>
+</nav>
+
+<main id="content">
+<h1 id="bmc-通过-i2c2-对-mcu-进行固件升级-接口文档">BMC 通过 I2C2 对 MCU 进行固件升级 — 接口文档</h1>
+<h2 id="概述">概述</h2>
+<p>MCU 提供一组 I2C 从机接口供 BMC 使用，支持<strong>遥测数据读取</strong>和 <strong>Flash 编程（用于固件升级）</strong>。</p>
+<table>
+<thead>
+<tr class="header">
+<th>I2C 总线</th>
+<th>连接目标</th>
+<th>从机地址</th>
+<th>功能</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>I2C2</strong></td>
+<td><strong>BMC</strong></td>
+<td><strong><code>0x60 + module_id × 2</code></strong></td>
+<td><strong>遥测只读 + Flash 编程</strong></td>
+</tr>
+</tbody>
+</table>
+<p>本文档面向 BMC 固件开发人员，说明如何通过 <strong>I2C2</strong> 接口对 MCU 进行 Flash 编程和固件升级。</p>
+<hr />
+<h2 id="i2c-从机地址">1. I2C 从机地址</h2>
+<h3 id="地址计算">1.1 地址计算</h3>
+<p>BMC 从机地址由槽位 ID（module_id）决定：</p>
+<pre><code>I2C2 从机地址 = 0x60 + module_id × 2</code></pre>
+<p>槽位 ID 由硬件引脚状态决定：</p>
+<table>
+<thead>
+<tr class="header">
+<th>module_id</th>
+<th>从机地址</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0</td>
+<td>0x60</td>
+</tr>
+<tr class="even">
+<td>1</td>
+<td>0x62</td>
+</tr>
+<tr class="odd">
+<td>2</td>
+<td>0x64</td>
+</tr>
+<tr class="even">
+<td>3</td>
+<td>0x66</td>
+</tr>
+<tr class="odd">
+<td>…</td>
+<td>以此类推</td>
+</tr>
+</tbody>
+</table>
+<p>地址 mask = 0x01，即每个槽位匹配两个连续地址（如 module 0 匹配 0x60 和 0x61）。</p>
+<h3 id="i2c-通信参数">1.2 I2C 通信参数</h3>
+<table>
+<thead>
+<tr class="header">
+<th>参数</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>速率</td>
+<td>100 kHz（标准模式）</td>
+</tr>
+<tr class="even">
+<td>地址长度</td>
+<td>7-bit</td>
+</tr>
+<tr class="odd">
+<td>写操作格式</td>
+<td><code>[START] [地址+W] [索引字节] [数据字节0] [数据字节1] ... [STOP]</code></td>
+</tr>
+<tr class="even">
+<td>读操作格式</td>
+<td><code>[START] [地址+W] [索引字节] [STOP] [START] [地址+R] [数据字节0] ... [STOP]</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>重要</strong>：每次 I2C 传输必须以 <strong>STOP 条件</strong>结束。STOP 条件是触发 Flash 写入和命令提交的关键事件。</p>
+</blockquote>
+<hr />
+<h2 id="寄存器映射">2. 寄存器映射</h2>
+<p>BMC 接口采用 <strong>寄存器组模型</strong>（indexed register file），通过索引字节选择寄存器，支持地址自动递增。</p>
+<h3 id="寄存器访问方式">2.1 寄存器访问方式</h3>
+<pre><code>写寄存器：
+  [S] [0x60+W] [idx] [data0] [data1] ... [P]
+  └─ 首字节设置寄存器索引 idx
+      └─ 后续字节写入 idx, idx+1, idx+2...
+
+读寄存器：
+  [S] [0x60+W] [idx] [P]   ← 设置索引
+  [S] [0x60+R] [data0] ... [P]  ← 连续读取</code></pre>
+<h3 id="完整寄存器表">2.2 完整寄存器表</h3>
+<h4 id="只读遥测寄存器索引-0x00-0x18">只读遥测寄存器（索引 0x00 ~ 0x18）</h4>
+<table>
+<thead>
+<tr class="header">
+<th>索引</th>
+<th>名称</th>
+<th>说明</th>
+<th>访问</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0x00</td>
+<td>SOC_TEMP</td>
+<td>SoC 温度（°C）</td>
+<td>RO</td>
+</tr>
+<tr class="even">
+<td>0x01</td>
+<td>BOARD_TEMP</td>
+<td>板卡温度（°C）</td>
+<td>RO</td>
+</tr>
+<tr class="odd">
+<td>0x02</td>
+<td><strong>BOARD_TYPE</strong></td>
+<td><strong>板卡类型（HD12=0xb6, RH12=0xb7）</strong></td>
+<td><strong>RO</strong></td>
+</tr>
+<tr class="even">
+<td>0x03</td>
+<td>VERSION_L</td>
+<td>MCU 固件版本号</td>
+<td>RO</td>
+</tr>
+<tr class="odd">
+<td>0x04</td>
+<td>VERSION_H</td>
+<td>硬件版本号</td>
+<td>RO</td>
+</tr>
+<tr class="even">
+<td>0x05</td>
+<td>12V_POWER_L</td>
+<td>12V 功率低字节</td>
+<td>RO</td>
+</tr>
+<tr class="odd">
+<td>0x06</td>
+<td>12V_POWER_H</td>
+<td>12V 功率高字节</td>
+<td>RO</td>
+</tr>
+<tr class="even">
+<td>0x07~0x17</td>
+<td>SN[0..16]</td>
+<td>序列号（17 字节，ASCII）</td>
+<td>RO</td>
+</tr>
+<tr class="odd">
+<td>0x18</td>
+<td>SOC_INDEX</td>
+<td>SoC 索引</td>
+<td>RO</td>
+</tr>
+<tr class="even">
+<td><strong>0x19</strong></td>
+<td><strong>MCU_FAMILY</strong></td>
+<td><strong>MCU 家族（GD32F4=2）</strong></td>
+<td><strong>RO</strong></td>
+</tr>
+</tbody>
+</table>
+<h4 id="命令寄存器索引-0x70">命令寄存器（索引 0x70）</h4>
+<table>
+<thead>
+<tr class="header">
+<th>索引</th>
+<th>名称</th>
+<th>说明</th>
+<th>访问</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>0x70</strong></td>
+<td><strong>CMD</strong></td>
+<td>命令寄存器</td>
+<td><strong>WO</strong></td>
+</tr>
+</tbody>
+</table>
+<p>支持的命令值：</p>
+<table>
+<thead>
+<tr class="header">
+<th>命令</th>
+<th>值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>CMD_UPDATE</td>
+<td><strong>0x08</strong></td>
+<td>启动 I2C 升级模式</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>命令在 I2C <strong>STOP 条件</strong>时提交，MCU 在内部循环中异步执行。</p>
+</blockquote>
+<h4 id="flash-编程寄存器索引-0x630x65-0x7c0x7f-0x800xff">Flash 编程寄存器（索引 0x63~0x65, 0x7c~0x7f, 0x80~0xff）</h4>
+<table>
+<thead>
+<tr class="header">
+<th>索引</th>
+<th>名称</th>
+<th>说明</th>
+<th>访问</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>0x63</strong></td>
+<td><strong>FLASH_CMD</strong></td>
+<td>Flash 命令</td>
+<td><strong>WO</strong></td>
+</tr>
+<tr class="even">
+<td><strong>0x64</strong></td>
+<td><strong>EXPECT_TYPE</strong></td>
+<td><strong>解锁前写入期望板型</strong></td>
+<td><strong>WO</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>0x65</strong></td>
+<td><strong>EXPECT_FAMILY</strong></td>
+<td><strong>解锁前写入期望 MCU 家族</strong></td>
+<td><strong>WO</strong></td>
+</tr>
+<tr class="even">
+<td><strong>0x7c</strong></td>
+<td>FLASH_OFFSET[0]</td>
+<td>Flash 偏移地址——字节 0（最高字节，big-endian）</td>
+<td><strong>RW</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>0x7d</strong></td>
+<td>FLASH_OFFSET[1]</td>
+<td>Flash 偏移地址——字节 1</td>
+<td><strong>RW</strong></td>
+</tr>
+<tr class="even">
+<td><strong>0x7e</strong></td>
+<td>FLASH_OFFSET[2]</td>
+<td>Flash 偏移地址——字节 2</td>
+<td><strong>RW</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>0x7f</strong></td>
+<td>FLASH_OFFSET[3]</td>
+<td>Flash 偏移地址——字节 3（最低字节）</td>
+<td><strong>RW</strong></td>
+</tr>
+<tr class="even">
+<td><strong>0x80~0xfe</strong></td>
+<td>FLASH_DATA[0..126]</td>
+<td>Flash 写数据缓冲区（127 字节）</td>
+<td><strong>RW</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>0xff</strong></td>
+<td><strong>FLASH_FLUSH</strong></td>
+<td>写入第 128 个字节，<strong>STOP 时触发 Flash 写入</strong></td>
+<td><strong>WO</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Flash 命令（写入 0x63 寄存器）：</p>
+<table>
+<thead>
+<tr class="header">
+<th>命令</th>
+<th>值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>UNLOCK</td>
+<td><strong>0x02</strong></td>
+<td>解锁 Flash 控制器，允许擦除和编程</td>
+</tr>
+<tr class="even">
+<td>LOCK</td>
+<td><strong>0x03</strong></td>
+<td>锁定 Flash 控制器</td>
+</tr>
+<tr class="odd">
+<td>ERASE</td>
+<td><strong>0x04</strong></td>
+<td>擦除当前偏移地址所在的 4KB 页</td>
+</tr>
+</tbody>
+</table>
+<p>Flash 偏移地址（0x7c~0x7f）采用 <strong>大端序</strong>：</p>
+<pre><code>offset = flash_offset[0] &lt;&lt; 24 |
+         flash_offset[1] &lt;&lt; 16 |
+         flash_offset[2] &lt;&lt;  8 |
+         flash_offset[3]</code></pre>
+<blockquote>
+<p><strong>注意</strong>：未列出的索引读取时返回 0xff，写入时被忽略。</p>
+</blockquote>
+<hr />
+<h2 id="flash-编程操作">3. Flash 编程操作</h2>
+<h3 id="基本流程">3.1 基本流程</h3>
+<p>Flash 单次写入操作遵循以下顺序：</p>
+<pre><code>1. 解锁 MCU         → 写 0xb6 到 EXPECT_TYPE(0x64)、写 0x02 到 EXPECT_FAMILY(0x65)
+2. 解锁 Flash       → 写 0x02 到 FLASH_CMD(0x63)
+3. 设置偏移地址      → 写 4 字节到 FLASH_OFFSET(0x7c~0x7f)
+4. 擦除页           → 写 0x04 到 FLASH_CMD(0x63)
+5. 写入数据（128 字节）
+                   → 写数据到 FLASH_DATA(0x80~0xff)
+6. 锁定 Flash       → 写 0x03 到 FLASH_CMD(0x63)</code></pre>
+<blockquote>
+<p><strong>重要</strong>：EXPECT_TYPE 和 EXPECT_FAMILY 必须先于所有 Flash 操作写入，否则擦除/写入命令会被 MCU 静默拒绝。写入顺序必须先 EXPECT_TYPE 再 EXPECT_FAMILY——写后者时 MCU 立即校验，两个值都匹配（EXPECT_TYPE == 板型号 &amp;&amp; EXPECT_FAMILY == MCU 家族）才解锁 Flash 访问。</p>
+</blockquote>
+<blockquote>
+<p><strong>偏移地址限制</strong>： - 擦除操作要求偏移地址与 4KB 页对齐（<code>offset &amp; 0xFFF == 0</code>），不对齐时擦除命令被忽略 - Flash 写入范围必须在 <code>[0, 1MB)</code> 内，超出则命令被忽略 - 数据写入地址 = <code>FLASH_BASE + (flash_offset &amp; ~0x7F)</code>，自动 128 字节对齐</p>
+</blockquote>
+<h3 id="辅助函数定义">3.2 辅助函数定义</h3>
+<p>以下 Python 伪代码定义后续全量升级流程中会用到的辅助函数：</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true"></a><span class="co"># I2C 通信封装（由 BMC 平台层实现）</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true"></a><span class="kw">def</span> i2c_write(addr, data):    <span class="co"># 写数据到 I2C 从机</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true"></a><span class="kw">def</span> i2c_read(addr, reg, <span class="bu">len</span>): <span class="co"># 从 I2C 从机读取 len 字节</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true"></a><span class="kw">def</span> flash_unlock():</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;解锁 MCU Flash 访问，必须先写 EXPECT_TYPE + EXPECT_FAMILY&quot;&quot;&quot;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true"></a>    i2c_write(<span class="bn">0x60</span>, [<span class="bn">0x64</span>, <span class="bn">0xb6</span>])   <span class="co"># EXPECT_TYPE = HD12</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true"></a>    i2c_write(<span class="bn">0x60</span>, [<span class="bn">0x65</span>, <span class="bn">0x02</span>])   <span class="co"># EXPECT_FAMILY = GD32F4</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true"></a>    i2c_write(<span class="bn">0x60</span>, [<span class="bn">0x63</span>, <span class="bn">0x02</span>])   <span class="co"># FLASH_CMD = UNLOCK</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true"></a><span class="kw">def</span> flash_lock():</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true"></a>    i2c_write(<span class="bn">0x60</span>, [<span class="bn">0x63</span>, <span class="bn">0x03</span>])   <span class="co"># 写 FLASH_CMD = LOCK</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true"></a></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true"></a><span class="kw">def</span> flash_set_offset(offset):</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;设置 Flash 偏移地址（4 字节大端序）&quot;&quot;&quot;</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true"></a>    i2c_write(<span class="bn">0x60</span>, [<span class="bn">0x7c</span>,</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true"></a>                     (offset <span class="op">&gt;&gt;</span> <span class="dv">24</span>) <span class="op">&amp;</span> <span class="bn">0xFF</span>,</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true"></a>                     (offset <span class="op">&gt;&gt;</span> <span class="dv">16</span>) <span class="op">&amp;</span> <span class="bn">0xFF</span>,</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true"></a>                     (offset <span class="op">&gt;&gt;</span> <span class="dv">8</span>)  <span class="op">&amp;</span> <span class="bn">0xFF</span>,</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true"></a>                     offset <span class="op">&amp;</span> <span class="bn">0xFF</span>])</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true"></a></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true"></a><span class="kw">def</span> flash_erase_page(page_aligned_offset):</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;擦除一个 4KB 页，offset 必须 4KB 对齐&quot;&quot;&quot;</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true"></a>    flash_unlock()</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true"></a>    flash_set_offset(page_aligned_offset)</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true"></a>    i2c_write(<span class="bn">0x60</span>, [<span class="bn">0x63</span>, <span class="bn">0x04</span>])   <span class="co"># FLASH_CMD = ERASE</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true"></a>    flash_lock()</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true"></a></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true"></a><span class="kw">def</span> flash_write_128(offset, data):</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;写入 128 字节数据，STOP 时 MCU 自动写入 Flash&quot;&quot;&quot;</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true"></a>    <span class="cf">assert</span> <span class="bu">len</span>(data) <span class="op">==</span> <span class="dv">128</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true"></a>    flash_set_offset(offset)</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true"></a>    buf <span class="op">=</span> [<span class="bn">0x80</span>] <span class="op">+</span> data        <span class="co"># 从 FLASH_DATA (0x80) 开始写</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true"></a>    i2c_write(<span class="bn">0x60</span>, buf)       <span class="co"># 最后一个字节写入 0xff → 标记 flush</span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true"></a></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true"></a><span class="kw">def</span> flash_read(offset, length):</span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;从 Flash 读取数据&quot;&quot;&quot;</span></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true"></a>    result <span class="op">=</span> []</span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true"></a>    <span class="cf">while</span> length <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true"></a>        slen <span class="op">=</span> <span class="bu">min</span>(length, <span class="dv">128</span>)</span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true"></a>        flash_set_offset(offset)</span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true"></a>        chunk <span class="op">=</span> i2c_read(<span class="bn">0x60</span>, <span class="bn">0x80</span>, slen)  <span class="co"># 从 FLASH_DATA 读</span></span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true"></a>        result <span class="op">+=</span> chunk</span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true"></a>        offset <span class="op">+=</span> slen</span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true"></a>        length <span class="op">-=</span> slen</span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true"></a>    <span class="cf">return</span> result</span></code></pre></div>
+<h3 id="部分填充少于-128-字节">3.3 部分填充（少于 128 字节）</h3>
+<p>Flash 写入缓冲区中的 <strong>0xFFFFFFFF 会被跳过</strong>，因此可以在构造数据时填充 0xFF：</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true"></a><span class="co"># 写入 64 字节（填充至 128 字节，0xFF 字会被跳过）</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true"></a>data <span class="op">=</span> actual_data <span class="op">+</span> [<span class="bn">0xFF</span>] <span class="op">*</span> (<span class="dv">128</span> <span class="op">-</span> <span class="bu">len</span>(actual_data))</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true"></a>flash_write_128(offset, data)</span></code></pre></div>
+<hr />
+<h2 id="固件升级命令-cmd_update">4. 固件升级命令 (CMD_UPDATE)</h2>
+<p>写入命令 <strong>0x08</strong>（CMD_UPDATE）到寄存器 0x70：</p>
+<pre><code>[S] [0x60+W] [0x70] [0x08] [P]
+│            └─ CMD 寄存器  └─ CMD_UPDATE
+└─ STOP → MCU 异步执行升级引导</code></pre>
+<p>CMD_UPDATE 执行后，MCU 将： 1. 停止正常运行，禁用除当前 I2C 从机外的其他内部功能 2. 等待引导加载程序通过 I2C 接收新的固件数据 3. 验证后跳转至新固件</p>
+<hr />
+<h2 id="bmc-全量升级流程推荐流程">5. BMC 全量升级流程（推荐流程）</h2>
+<p>BMC 进行 MCU 固件升级时应遵循以下完整流程。全量升级擦写整个固件区域（从偏移 0 开始），不区分 bootloader/app 区。</p>
+<h3 id="固件文件格式">5.1 固件文件格式</h3>
+<p>MCU 固件文件末尾附加 128 字节的 <code>fwinfo</code> 结构体：</p>
+<pre><code>  [0]                      [file_size - 128]  [file_size - 1]
+  +-------------------------+------------------+
+  |  固件二进制数据         |  fwinfo (128B)   |
+  |  (file_size - 128 字节) |                  |
+  +-------------------------+------------------+
+                              | md5[0..15]  | ← 固件数据的 MD5 校验值
+                              | magic[0..3] | ← &quot;MCUF&quot;
+                              | type        | ← 目标板型（如 HD12=0xb6）
+                              | mcu_family  | ← MCU 系列（GD32F4xx=2）
+                              | r0[2]       | ← 保留
+                              | timestamp   | ← 时间戳
+                              | r1[100]     | ← 保留</code></pre>
+<h3 id="完整升级流程">5.2 完整升级流程</h3>
+<pre><code>┌─────────────────────────────────────────────┐
+│  Step 1: 固件校验（BMC 侧本地执行）           │
+│                                             │
+│  1. 打开固件文件，检查尾部 magic == &quot;MCUF&quot;    │
+│  2. 计算固件数据 (file_size-128) 的 MD5       │
+│     与 fwinfo.md5 对比                       │
+│  3. 读取 MCU 的 BOARD_TYPE (索引 0x02)         │
+│     与 fwinfo.type 对比确认兼容性             │
+│  4. 读取 MCU 的 MCU_FAMILY (索引 0x19)         │
+│     与 fwinfo.mcu_family 对比                │
+│  5. 记录当前 VERSION_L (索引 0x03) 作为备份   │
+│                                             │
+│  任何一步失败 → 终止升级                      │
+├─────────────────────────────────────────────┤
+│  Step 2: 解锁 MCU Flash 操作                 │
+│                                             │
+│  i2c_write(0x60, [0x64, fwinfo.type])       │
+│  i2c_write(0x60, [0x65, fwinfo.mcu_family]) │
+│                                             │
+│  写入 EXPECT_FAMILY 时 MCU 立即校验，        │
+│  匹配才允许后续 Flash 擦写                   │
+├─────────────────────────────────────────────┤
+│  Step 3: 全片擦除                            │
+│                                             │
+│  for offset in range(0, firmware_size, 4KB): │
+│      flash_erase_page(offset)                │
+├─────────────────────────────────────────────┤
+│  Step 4: 写入固件数据                        │
+│                                             │
+│  for offset in range(0, firmware_size, 128): │
+│      block = firmware[offset:offset+128]     │
+│      block += [0xFF] * (128 - len(block))    │
+│      flash_write_128(offset, block)          │
+├─────────────────────────────────────────────┤
+│  Step 5: 写后验证（读回比较）                 │
+│                                             │
+│  readback = flash_read(0, firmware_size)     │
+│  if readback != firmware:                    │
+│      终止升级，记录错误                       │
+├─────────────────────────────────────────────┤
+│  Step 6: 触发升级引导                        │
+│                                             │
+│  i2c_write(0x60, [0x70, 0x08])  # CMD_UPDATE│
+└─────────────────────────────────────────────┘</code></pre>
+<h3 id="完整升级流程代码示例">5.3 完整升级流程代码示例</h3>
+<div class="sourceCode" id="cb10"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true"></a><span class="kw">def</span> mcu_full_upgrade(firmware_file):</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;MCU 全量固件升级&quot;&quot;&quot;</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true"></a>    </span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true"></a>    <span class="co"># ---- Step 1: 固件校验 ----</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true"></a>    <span class="cf">with</span> <span class="bu">open</span>(firmware_file, <span class="st">&#39;rb&#39;</span>) <span class="im">as</span> f:</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true"></a>        firmware <span class="op">=</span> <span class="bu">list</span>(f.read())</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true"></a>    </span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true"></a>    file_size <span class="op">=</span> <span class="bu">len</span>(firmware)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true"></a>    <span class="cf">if</span> file_size <span class="op">&lt;</span> <span class="dv">128</span>:</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true"></a>        <span class="bu">print</span>(<span class="st">&quot;ERROR: firmware file too small&quot;</span>)</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true"></a>        <span class="cf">return</span> <span class="va">False</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true"></a>    </span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true"></a>    fwinfo <span class="op">=</span> firmware[<span class="op">-</span><span class="dv">128</span>:]  <span class="co"># 尾部 128 字节</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true"></a>    </span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true"></a>    <span class="co"># 检查 magic</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true"></a>    <span class="cf">if</span> fwinfo[<span class="dv">16</span>:<span class="dv">20</span>] <span class="op">!=</span> [<span class="bn">0x4D</span>, <span class="bn">0x43</span>, <span class="bn">0x55</span>, <span class="bn">0x46</span>]:  <span class="co"># &quot;MCUF&quot;</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true"></a>        <span class="bu">print</span>(<span class="st">&quot;ERROR: invalid magic (expected &#39;MCUF&#39;)&quot;</span>)</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true"></a>        <span class="cf">return</span> <span class="va">False</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true"></a>    </span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true"></a>    <span class="co"># 检查 MD5</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true"></a>    fw_data <span class="op">=</span> firmware[:<span class="op">-</span><span class="dv">128</span>]</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true"></a>    expected_md5 <span class="op">=</span> <span class="bu">bytes</span>(fwinfo[<span class="dv">0</span>:<span class="dv">16</span>])</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true"></a>    calculated_md5 <span class="op">=</span> calc_md5(<span class="bu">bytes</span>(fw_data))</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true"></a>    <span class="cf">if</span> calculated_md5 <span class="op">!=</span> expected_md5:</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true"></a>        <span class="bu">print</span>(<span class="st">&quot;ERROR: MD5 mismatch&quot;</span>)</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true"></a>        <span class="cf">return</span> <span class="va">False</span></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true"></a>    </span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true"></a>    <span class="co"># 读取 MCU 板型（索引 0x02）</span></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true"></a>    board_type <span class="op">=</span> i2c_read(<span class="bn">0x60</span>, <span class="bn">0x02</span>, <span class="dv">1</span>)[<span class="dv">0</span>]</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true"></a>    fw_board_type <span class="op">=</span> fwinfo[<span class="dv">20</span>]  <span class="co"># fwinfo.type</span></span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true"></a>    <span class="cf">if</span> board_type <span class="op">!=</span> fw_board_type:</span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true"></a>        <span class="bu">print</span>(<span class="ss">f&quot;ERROR: board type mismatch (MCU=0x</span><span class="sc">{</span>board_type<span class="sc">:02x}</span><span class="ss">, FW=0x</span><span class="sc">{</span>fw_board_type<span class="sc">:02x}</span><span class="ss">)&quot;</span>)</span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true"></a>        <span class="cf">return</span> <span class="va">False</span></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true"></a>    </span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true"></a>    <span class="co"># 读取 MCU 家族（索引 0x19）</span></span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true"></a>    mcu_family <span class="op">=</span> i2c_read(<span class="bn">0x60</span>, <span class="bn">0x19</span>, <span class="dv">1</span>)[<span class="dv">0</span>]</span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true"></a>    fw_family <span class="op">=</span> fwinfo[<span class="dv">21</span>]  <span class="co"># fwinfo.mcu_family</span></span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true"></a>    <span class="cf">if</span> mcu_family <span class="op">!=</span> fw_family:</span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true"></a>        <span class="bu">print</span>(<span class="ss">f&quot;ERROR: MCU family mismatch (MCU=</span><span class="sc">{</span>mcu_family<span class="sc">}</span><span class="ss">, FW=</span><span class="sc">{</span>fw_family<span class="sc">}</span><span class="ss">)&quot;</span>)</span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true"></a>        <span class="cf">return</span> <span class="va">False</span></span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true"></a>    </span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;Firmware validation passed&quot;</span>)</span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true"></a>    </span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true"></a>    <span class="co"># ---- Step 2: 解锁 MCU Flash ----</span></span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;Unlocking MCU flash...&quot;</span>)</span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true"></a>    i2c_write(<span class="bn">0x60</span>, [<span class="bn">0x64</span>, fw_board_type])   <span class="co"># EXPECT_TYPE</span></span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true"></a>    i2c_write(<span class="bn">0x60</span>, [<span class="bn">0x65</span>, fw_family])        <span class="co"># EXPECT_FAMILY</span></span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true"></a>    </span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true"></a>    <span class="co"># ---- Step 3: 擦除 ----</span></span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true"></a>    PAGE_SIZE <span class="op">=</span> <span class="dv">4</span> <span class="op">*</span> <span class="dv">1024</span></span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true"></a>    FLASH_BUF <span class="op">=</span> <span class="dv">128</span></span>
+<span id="cb10-52"><a href="#cb10-52" aria-hidden="true"></a>    </span>
+<span id="cb10-53"><a href="#cb10-53" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;Erasing flash...&quot;</span>)</span>
+<span id="cb10-54"><a href="#cb10-54" aria-hidden="true"></a>    <span class="cf">for</span> offset <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">0</span>, file_size, PAGE_SIZE):</span>
+<span id="cb10-55"><a href="#cb10-55" aria-hidden="true"></a>        flash_erase_page(offset)</span>
+<span id="cb10-56"><a href="#cb10-56" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;Erase done&quot;</span>)</span>
+<span id="cb10-57"><a href="#cb10-57" aria-hidden="true"></a>    </span>
+<span id="cb10-58"><a href="#cb10-58" aria-hidden="true"></a>    <span class="co"># ---- Step 3: 写入 ----</span></span>
+<span id="cb10-59"><a href="#cb10-59" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;Programming flash...&quot;</span>)</span>
+<span id="cb10-60"><a href="#cb10-60" aria-hidden="true"></a>    <span class="cf">for</span> offset <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">0</span>, file_size, FLASH_BUF):</span>
+<span id="cb10-61"><a href="#cb10-61" aria-hidden="true"></a>        block <span class="op">=</span> <span class="bu">list</span>(fw_data[offset:offset <span class="op">+</span> FLASH_BUF])</span>
+<span id="cb10-62"><a href="#cb10-62" aria-hidden="true"></a>        block <span class="op">+=</span> [<span class="bn">0xFF</span>] <span class="op">*</span> (FLASH_BUF <span class="op">-</span> <span class="bu">len</span>(block))</span>
+<span id="cb10-63"><a href="#cb10-63" aria-hidden="true"></a>        flash_write_128(offset, block)</span>
+<span id="cb10-64"><a href="#cb10-64" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;Program done&quot;</span>)</span>
+<span id="cb10-65"><a href="#cb10-65" aria-hidden="true"></a>    </span>
+<span id="cb10-66"><a href="#cb10-66" aria-hidden="true"></a>    <span class="co"># ---- Step 4: 写后验证 ----</span></span>
+<span id="cb10-67"><a href="#cb10-67" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;Verifying flash...&quot;</span>)</span>
+<span id="cb10-68"><a href="#cb10-68" aria-hidden="true"></a>    readback <span class="op">=</span> flash_read(<span class="dv">0</span>, file_size)</span>
+<span id="cb10-69"><a href="#cb10-69" aria-hidden="true"></a>    <span class="cf">if</span> readback <span class="op">!=</span> firmware:</span>
+<span id="cb10-70"><a href="#cb10-70" aria-hidden="true"></a>        <span class="bu">print</span>(<span class="st">&quot;ERROR: verify failed&quot;</span>)</span>
+<span id="cb10-71"><a href="#cb10-71" aria-hidden="true"></a>        <span class="cf">return</span> <span class="va">False</span></span>
+<span id="cb10-72"><a href="#cb10-72" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;Verify passed&quot;</span>)</span>
+<span id="cb10-73"><a href="#cb10-73" aria-hidden="true"></a>    </span>
+<span id="cb10-74"><a href="#cb10-74" aria-hidden="true"></a>    <span class="co"># ---- Step 5: 触发升级 ----</span></span>
+<span id="cb10-75"><a href="#cb10-75" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;Triggering upgrade...&quot;</span>)</span>
+<span id="cb10-76"><a href="#cb10-76" aria-hidden="true"></a>    i2c_write(<span class="bn">0x60</span>, [<span class="bn">0x70</span>, <span class="bn">0x08</span>])  <span class="co"># CMD_UPDATE</span></span>
+<span id="cb10-77"><a href="#cb10-77" aria-hidden="true"></a>    </span>
+<span id="cb10-78"><a href="#cb10-78" aria-hidden="true"></a>    <span class="bu">print</span>(<span class="st">&quot;Upgrade completed successfully&quot;</span>)</span>
+<span id="cb10-79"><a href="#cb10-79" aria-hidden="true"></a>    <span class="cf">return</span> <span class="va">True</span></span></code></pre></div>
+<h3 id="超时控制建议">5.4 超时控制建议</h3>
+<table>
+<thead>
+<tr class="header">
+<th>阶段</th>
+<th>参考时间</th>
+<th>建议等待</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>每页擦除（4KB）</td>
+<td>&lt; 100ms</td>
+<td>200ms</td>
+</tr>
+<tr class="even">
+<td>每 128 字节写入</td>
+<td>~ 6.4ms</td>
+<td>50ms</td>
+</tr>
+<tr class="odd">
+<td>每次 I2C 传输间隔</td>
+<td>—</td>
+<td>≥ 10ms</td>
+</tr>
+<tr class="even">
+<td>全量升级 80KB 固件</td>
+<td>~ 5s</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="限制与注意事项">6. 限制与注意事项</h2>
+<h3 id="flash-操作约束">6.1 Flash 操作约束</h3>
+<table>
+<thead>
+<tr class="header">
+<th>约束</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>擦除粒度</strong></td>
+<td>最小 4KB 页擦除</td>
+</tr>
+<tr class="even">
+<td><strong>写入粒度</strong></td>
+<td>每次最多 128 字节，按字（32-bit）写入</td>
+</tr>
+<tr class="odd">
+<td><strong>对齐要求</strong></td>
+<td>擦除偏移必须 4KB 对齐；数据写入 128 字节自动对齐</td>
+</tr>
+<tr class="even">
+<td><strong>寿命</strong></td>
+<td>Flash 典型擦写寿命 10 万次</td>
+</tr>
+<tr class="odd">
+<td><strong>写入前必须擦除</strong></td>
+<td>Flash 只能将 1 写为 0，不能将 0 写为 1。写入非 0xFF 的地址需先擦除</td>
+</tr>
+</tbody>
+</table>
+<h3 id="错误处理">6.2 错误处理</h3>
+<table>
+<thead>
+<tr class="header">
+<th>异常情况</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>擦除失败</td>
+<td>通常因偏移未 4KB 对齐或超出 Flash 范围；也可能是未写 EXPECT_TYPE/EXPECT_FAMILY，MCU 静默拒绝</td>
+</tr>
+<tr class="even">
+<td>写入失败</td>
+<td>常见原因：Flash 未先擦除，Flash 已锁定，或未解锁 MCU Flash（未写 EXPECT 寄存器）</td>
+</tr>
+<tr class="odd">
+<td>MD5 校验不通过</td>
+<td>固件文件损坏或不是正确的 MCU 固件</td>
+</tr>
+<tr class="even">
+<td>板型不匹配</td>
+<td>固件 <code>fwinfo.type</code> 与 MCU <code>BOARD_TYPE</code> 不一致，EXPECT_TYPE 校验失败</td>
+</tr>
+<tr class="odd">
+<td>MCU 家族不匹配</td>
+<td>固件 <code>fwinfo.mcu_family</code> 与 MCU <code>MCU_FAMILY</code> 不一致，EXPECT_FAMILY 校验失败</td>
+</tr>
+<tr class="even">
+<td>写后验证失败</td>
+<td>Flash 编程异常，建议重新擦除并重试</td>
+</tr>
+<tr class="odd">
+<td>读写无响应</td>
+<td>I2C 从机正在执行 Flash 操作时可能出现短暂无响应，建议 BMC 实现重试机制</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="附录寄存器对照表完整版">7. 附录：寄存器对照表（完整版）</h2>
+<table>
+<thead>
+<tr class="header">
+<th>索引</th>
+<th>寄存器</th>
+<th>读</th>
+<th>写</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0x00</td>
+<td>SOC_TEMP</td>
+<td>✅ SoC 温度</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>0x01</td>
+<td>BOARD_TEMP</td>
+<td>✅ 板温</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>0x02</td>
+<td><strong>BOARD_TYPE</strong></td>
+<td>✅ <strong>板型号</strong></td>
+<td>—</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>0x03</td>
+<td>VERSION_L</td>
+<td>✅ 固件版本</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>0x04</td>
+<td>VERSION_H</td>
+<td>✅ 硬件版本</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>0x05</td>
+<td>12V_POWER_L</td>
+<td>✅ 功率低字节</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>0x06</td>
+<td>12V_POWER_H</td>
+<td>✅ 功率高字节</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>0x07~0x17</td>
+<td>SN</td>
+<td>✅ 序列号</td>
+<td>—</td>
+<td>17 字节</td>
+</tr>
+<tr class="odd">
+<td>0x18</td>
+<td>SOC_INDEX</td>
+<td>✅ SoC 索引</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr class="even">
+<td><strong>0x19</strong></td>
+<td><strong>MCU_FAMILY</strong></td>
+<td><strong>✅ MCU 家族</strong></td>
+<td><strong>—</strong></td>
+<td><strong>GD32F4=2</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>0x63</strong></td>
+<td><strong>FLASH_CMD</strong></td>
+<td><strong>—</strong></td>
+<td><strong>✅ 命令</strong></td>
+<td><strong>解锁/锁定/擦除</strong></td>
+</tr>
+<tr class="even">
+<td><strong>0x64</strong></td>
+<td><strong>EXPECT_TYPE</strong></td>
+<td><strong>—</strong></td>
+<td><strong>✅ 板型</strong></td>
+<td><strong>与 0x02 比对</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>0x65</strong></td>
+<td><strong>EXPECT_FAMILY</strong></td>
+<td><strong>—</strong></td>
+<td><strong>✅ 家族</strong></td>
+<td><strong>与 0x19 比对，写时校验</strong></td>
+</tr>
+<tr class="even">
+<td><strong>0x70</strong></td>
+<td><strong>CMD</strong></td>
+<td><strong>—</strong></td>
+<td><strong>✅ 命令</strong></td>
+<td><strong>CMD_UPDATE</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>0x7c</strong></td>
+<td><strong>FLASH_OFFSET[0]</strong></td>
+<td><strong>✅</strong></td>
+<td><strong>✅</strong></td>
+<td><strong>偏移[31:24]</strong></td>
+</tr>
+<tr class="even">
+<td><strong>0x7d</strong></td>
+<td><strong>FLASH_OFFSET[1]</strong></td>
+<td><strong>✅</strong></td>
+<td><strong>✅</strong></td>
+<td><strong>偏移[23:16]</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>0x7e</strong></td>
+<td><strong>FLASH_OFFSET[2]</strong></td>
+<td><strong>✅</strong></td>
+<td><strong>✅</strong></td>
+<td><strong>偏移[15:8]</strong></td>
+</tr>
+<tr class="even">
+<td><strong>0x7f</strong></td>
+<td><strong>FLASH_OFFSET[3]</strong></td>
+<td><strong>✅</strong></td>
+<td><strong>✅</strong></td>
+<td><strong>偏移[7:0]</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>0x80~0xfe</strong></td>
+<td><strong>FLASH_DATA</strong></td>
+<td><strong>✅ 读 Flash</strong></td>
+<td><strong>✅ 写入</strong></td>
+<td><strong>数据缓冲区 127B</strong></td>
+</tr>
+<tr class="even">
+<td><strong>0xff</strong></td>
+<td><strong>FLASH_FLUSH</strong></td>
+<td><strong>✅</strong></td>
+<td><strong>✅ 触发写入</strong></td>
+<td><strong>第 128B + STOP 触发</strong></td>
+</tr>
+<tr class="odd">
+<td>其他</td>
+<td>—</td>
+<td>0xff</td>
+<td>忽略</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+</main>
+
+<script>
+(function(){
+var c=document.getElementById('content');
+var heads=c.querySelectorAll('h2,h3');
+var toc=document.getElementById('toc');
+var h2n=0,h3n=0;
+heads.forEach(function(h){
+var t=h.textContent.replace(/<[^>]*>/g,'');
+if(h.tagName==='H2'){h2n++;h3n=0;
+var a=document.createElement('a');a.href='#'+h.id;a.textContent=h2n+'. '+t;
+var li=document.createElement('li');li.appendChild(a);toc.appendChild(li);
+}else{h3n++;
+var a=document.createElement('a');a.className='sub';a.href='#'+h.id;a.textContent=h2n+'.'+h3n+' '+t;
+var li=document.createElement('li');li.appendChild(a);toc.appendChild(li);
+}});
+var links=toc.querySelectorAll('a');
+window.addEventListener('scroll',function(){
+for(var i=heads.length-1;i>=0;i--){
+var r=heads[i].getBoundingClientRect();
+if(r.top<120){links.forEach(function(l){l.classList.remove('active')});
+var a=toc.querySelector('a[href="#'+heads[i].id+'"]');if(a)a.classList.add('active');return;}
+}
+links.forEach(function(l){l.classList.remove('active')});
+});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/arm-none-eabi-gcc",
+      "-I.",
+      "-Iecdc",
+      "-Idvfs",
+      "-I../libgd/GD32F4xx_standard_peripheral/Include",
+      "-I../libgd/CMSIS_f4xx",
+      "-I../libgd/CMSIS_f4xx/GD/GD32F4xx/Include",
+      "-Os",
+      "-mthumb",
+      "-mcpu=cortex-m4",
+      "-specs=nano.specs",
+      "-std=gnu11",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "-Wall",
+      "-Werror",
+      "-I.",
+      "-Iecdc",
+      "-Idvfs",
+      "-I../libgd/GD32F4xx_standard_peripheral/Include",
+      "-I../libgd/CMSIS_f4xx",
+      "-I../libgd/CMSIS_f4xx/GD/GD32F4xx/Include",
+      "-DGD32F4xx",
+      "-c",
+      "-o",
+      "build/common.o",
+      "common.c"
+    ],
+    "directory": "/home/flander/work/projects/sophgo-mcu/HD12",
+    "file": "/home/flander/work/projects/sophgo-mcu/HD12/common.c",
+    "output": "/home/flander/work/projects/sophgo-mcu/HD12/build/common.o"
+  }
+]
