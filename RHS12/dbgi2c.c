@@ -217,8 +217,11 @@ int dbgi2c_write(int idx, uint64_t addr, void *data, int len)
 /* i2c master operations */
 #define DBGI2C_MCU_INFO_BASE	0x7010000000ULL
 #define BOARD_TPYE_BASE 	0x70500001c8ULL
+#define C2C_LINK_BASE 	    0x705000020cULL
 void dbgi2c_broadcast(int idx, struct dbgi2c_info *info)
 {
+	int val = 0x0;
+
 	// int i;
 
 	// for (i = 0; i < sizeof(struct dbgi2c_info) / 4; ++i) {
@@ -228,6 +231,9 @@ void dbgi2c_broadcast(int idx, struct dbgi2c_info *info)
 
 	// dbgi2c_write32(idx, BOARD_TPYE_BASE, BOARD_TPYE);
 	dbgi2c_write32(idx, BOARD_TPYE_BASE, get_board_type() | (get_ddr_size() << 8));
+
+	val |= (idx << 21) | (get_module_id() << 17) | get_board_type();
+	dbgi2c_write32(idx, C2C_LINK_BASE, val);
 
 	// if (idx == 0)
 	// 	dbgi2c_collect();

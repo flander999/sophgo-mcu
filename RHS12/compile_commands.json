@@ -26,11 +26,11 @@
       "-DGD32F4xx",
       "-c",
       "-o",
-      "build/common.o",
-      "common.c"
+      "build/dbgi2c.o",
+      "dbgi2c.c"
     ],
-    "directory": "/home/flander/work/projects/sophgo-mcu/HD12",
-    "file": "/home/flander/work/projects/sophgo-mcu/HD12/common.c",
-    "output": "/home/flander/work/projects/sophgo-mcu/HD12/build/common.o"
+    "directory": "/home/flander/work/projects/sophgo-mcu/RHS12",
+    "file": "/home/flander/work/projects/sophgo-mcu/RHS12/dbgi2c.c",
+    "output": "/home/flander/work/projects/sophgo-mcu/RHS12/build/dbgi2c.o"
   }
 ]

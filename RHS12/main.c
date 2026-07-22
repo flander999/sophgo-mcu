@@ -50,7 +50,9 @@ int main()
 	board_power_init();
 	check_gpio_power_good();
 
-    board_type_init();
+	host_powergood_init();
+
+	board_type_init();
 
     pcie_init();
 
@@ -83,6 +85,8 @@ int main()
 	while(1) {
 		if (chip_enable()) {
 			mon_process();
+			reset_c2c();
+			c2c_check();
 		}
 
 		ct7451_process();

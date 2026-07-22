@@ -230,7 +230,8 @@ static const char * const cmd_info_usage =
 static void cmd_info(void *hint, int argc, char const *argv[])
 {
 	dbg_printf("firmware build time:%s-%s\n", __DATE__, __TIME__);
-	dbg_printf("PCB Version: %d\n", get_pcb_ver());
+	dbg_printf("HW Version: %d\n", get_pcb_ver());
+	dbg_printf("Prod Version: %d\n", get_bom_ver());
 	dbg_printf("MCU_SW_VER: %d\n", MCU_SW_VER);
     dbg_printf("BOARD_TYPE: 0x%x\n", get_board_type());
     dbg_printf("DDR SIZE TYPE: %d\n", get_ddr_size());
@@ -358,6 +359,17 @@ static void cmd_efuse(void *hint, int argc, char const *argv[])
 	}
 }
 
+static const char * const cmd_c2c_status_usage =
+"c2c\n";
+static void cmd_c2c(void *hint, int argc, char const *argv[])
+{
+	if (gpio_output_bit_get(HOST_PWRGD_PORT, HOST_PWRGD_PIN)) {
+		dbg_printf("HOST_PWRGD_PIN has been pulled up\n");
+	} else {
+		dbg_printf("HOST_PWRGD_PIN has been pulled down\n");
+	}
+}
+
 struct command {
 	const char *name, *alias, *usage;
 	ecdc_callback_fn fn;
@@ -381,6 +393,7 @@ static struct command command_list[] = {
 	{"multiphase", NULL, cmd_multiphase_usage, cmd_multiphase},
 	{"dbgi2c", NULL, cmd_dbgi2c_usage, cmd_dbgi2c},
 	{"efuse", NULL, cmd_efuse_usage, cmd_efuse},
+	{"c2c", NULL, cmd_c2c_status_usage, cmd_c2c},
 };
 
 void print_usage(struct command *cmd)
